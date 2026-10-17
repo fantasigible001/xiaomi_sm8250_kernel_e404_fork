@@ -24,7 +24,6 @@ jobs:
             -b "${{ github.event.inputs.kernel_branch }}" \
             https://github.com/dumpcode404/xiaomi_sm8250_kernel_e404_fork.git kernel
 
-      
       - name: Test SuSFS patch compatibility
         working-directory: kernel
         shell: bash
@@ -52,6 +51,41 @@ jobs:
           echo "=== Dry-run only; source will not be modified ==="
           patch --dry-run --batch -p1 \
             < "$RUNNER_TEMP/susfs_patch_to_4.19.patch"
+
+      - name: Diagnose SuSFS patch failures
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -u
+
+          DIAG="$RUNNER_TEMP/susfs-diagnostic"
+          mkdir -p "$DIAG"
+          git archive HEAD | tar -x -C "$DIAG"
+
+          PATCH="$RUNNER_TEMP/susfs_patch_to_4.19.patch"
+
+          cd "$DIAG"
+
+          patch --batch -p1 \
+            --reject-file="$RUNNER_TEMP/susfs.rej" \
+            < "$PATCH" || true
+
+          echo "=== Rejected patch files ==="
+          find . -name '*.rej' -print
+
+          echo "=== Rejected hunks ==="
+          find . -name '*.rej' -exec sh -c '
+            echo "===== $1 ====="
+            cat "$1"
+          ' _ {} \;
+
+          echo "=== Relevant source features ==="
+          grep -nE 'seq_put_hex_ll|show_vma_header_prefix|pagemap_read' \
+            fs/proc/task_mmu.c || true
+
+          echo "=== Kernel uname implementation ==="
+          grep -nE 'SYSCALL_DEFINE1\(newuname|memcpy\(&tmp|fake uname' \
+            kernel/sys.c || true
 
       - name: Debug
         run: |
