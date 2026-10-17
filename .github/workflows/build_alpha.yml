@@ -24,6 +24,35 @@ jobs:
             -b "${{ github.event.inputs.kernel_branch }}" \
             https://github.com/dumpcode404/xiaomi_sm8250_kernel_e404_fork.git kernel
 
+      
+      - name: Test SuSFS patch compatibility
+        working-directory: kernel
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Kernel version ==="
+          grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL) =' Makefile
+
+          VERSION=$(sed -n 's/^VERSION = //p' Makefile)
+          PATCHLEVEL=$(sed -n 's/^PATCHLEVEL = //p' Makefile)
+
+          test "$VERSION.$PATCHLEVEL" = "4.19" || {
+            echo "ERROR: Expected Linux 4.19"
+            exit 1
+          }
+
+          test -f arch/arm64/configs/vendor/munch_defconfig
+          test -d fs
+
+          curl -fL \
+            https://raw.githubusercontent.com/JackA1ltman/NonGKI_Kernel_Build_2nd/mainline/Patches/Patch/susfs_patch_to_4.19.patch \
+            -o "$RUNNER_TEMP/susfs_patch_to_4.19.patch"
+
+          echo "=== Dry-run only; source will not be modified ==="
+          patch --dry-run --batch -p1 \
+            < "$RUNNER_TEMP/susfs_patch_to_4.19.patch"
+
       - name: Debug
         run: |
           cd kernel
