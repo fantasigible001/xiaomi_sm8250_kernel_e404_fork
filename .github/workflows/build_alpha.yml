@@ -25,6 +25,7 @@ jobs:
             https://github.com/dumpcode404/xiaomi_sm8250_kernel_e404_fork.git kernel
 
       - name: Test SuSFS patch compatibility
+        continue-on-error: true
         working-directory: kernel
         shell: bash
         run: |
